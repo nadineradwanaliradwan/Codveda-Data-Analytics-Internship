@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Codveda Data Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d2e;
+    --card: #20243a;
+    --border: #2d3255;
+    --accent1: #4f8ef7;
+    --accent2: #43e97b;
+    --accent3: #fa7c58;
+    --accent4: #a78bfa;
+    --text: #e2e8f0;
+    --muted: #8892b0;
+    --positive: #43e97b;
+    --negative: #fa7c58;
+    --neutral: #4f8ef7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  header {
+    background: linear-gradient(135deg, #1a1d2e 0%, #12162a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { font-size: 1.4rem; font-weight: 700; color: var(--accent1); }
+  header span { font-size: 0.8rem; color: var(--muted); }
+  .badge { background: var(--accent2); color: #0f1117; padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; margin-left: 12px; }
+
+  .tabs { display: flex; gap: 4px; padding: 16px 32px 0; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .tab { padding: 10px 22px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--muted); border: 1px solid transparent; border-bottom: none; transition: all 0.2s; }
+  .tab:hover { color: var(--text); background: var(--card); }
+  .tab.active { background: var(--card); color: var(--accent1); border-color: var(--border); }
+
+  .page { display: none; padding: 24px 32px; }
+  .page.active { display: block; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; position: relative; overflow: hidden; }
+  .kpi::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 12px 12px 0 0; }
+  .kpi.blue::before { background: var(--accent1); }
+  .kpi.green::before { background: var(--accent2); }
+  .kpi.orange::before { background: var(--accent3); }
+  .kpi.purple::before { background: var(--accent4); }
+  .kpi-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .kpi-value { font-size: 2rem; font-weight: 800; line-height: 1; }
+  .kpi-sub { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+  .kpi.blue .kpi-value { color: var(--accent1); }
+  .kpi.green .kpi-value { color: var(--accent2); }
+  .kpi.orange .kpi-value { color: var(--accent3); }
+  .kpi.purple .kpi-value { color: var(--accent4); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .span2 { grid-column: span 2; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .card-title { font-size: 0.85rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  .chart-wrap { position: relative; height: 240px; }
+  .chart-wrap.tall { height: 300px; }
+
+  .insight-box { background: rgba(79,142,247,0.08); border: 1px solid rgba(79,142,247,0.2); border-radius: 8px; padding: 12px 16px; margin-top: 12px; font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+  .insight-box strong { color: var(--accent1); }
+
+  .filter-row { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+  .filter-label { font-size: 0.78rem; color: var(--muted); }
+  .chip { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 0.78rem; cursor: pointer; transition: all 0.15s; }
+  .chip:hover, .chip.active { background: var(--accent1); color: white; border-color: var(--accent1); }
+
+  footer { text-align: center; padding: 16px; color: var(--muted); font-size: 0.75rem; border-top: 1px solid var(--border); margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📊 Codveda Analytics Dashboard <span class="badge">LIVE</span></h1>
+  </div>
+  <span>Data Analytics Internship · Level 3 Task 2 · Nadine</span>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showPage('churn')">🔁 Churn Analysis</div>
+  <div class="tab" onclick="showPage('stock')">📈 Stock Prices</div>
+  <div class="tab" onclick="showPage('sentiment')">💬 Sentiment NLP</div>
+  <div class="tab" onclick="showPage('iris')">🌸 Iris EDA</div>
+</div>
+
+<!-- ═══════════════════════════════════ CHURN PAGE ═══════════════════════════════════ -->
+<div class="page active" id="page-churn">
+
+  <div class="kpi-row">
+    <div class="kpi blue">
+      <div class="kpi-label">Total Customers</div>
+      <div class="kpi-value">3,333</div>
+      <div class="kpi-sub">Combined dataset</div>
+    </div>
+    <div class="kpi orange">
+      <div class="kpi-label">Overall Churn Rate</div>
+      <div class="kpi-value">14.5%</div>
+      <div class="kpi-sub">↑ Above industry avg</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">Model Accuracy (RF)</div>
+      <div class="kpi-value">95.4%</div>
+      <div class="kpi-sub">Random Forest tuned</div>
+    </div>
+    <div class="kpi purple">
+      <div class="kpi-label">ROC-AUC Score</div>
+      <div class="kpi-value">0.917</div>
+      <div class="kpi-sub">Excellent discrimination</div>
+    </div>
+  </div>
+
+  <div class="filter-row">
+    <span class="filter-label">Filter by plan:</span>
+    <div class="chip active" onclick="filterChurn('all', this)">All Customers</div>
+    <div class="chip" onclick="filterChurn('intl', this)">International Plan</div>
+    <div class="chip" onclick="filterChurn('no_intl', this)">No Intl Plan</div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent3)"></span>Top 10 States by Churn Rate</div>
+      <div class="chart-wrap tall"><canvas id="stateChurnChart"></canvas></div>
+      <div class="insight-box"><strong>CA & NJ</strong> have the highest churn at 26.5%. These states may need targeted retention campaigns.</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent4)"></span>Customer Service Calls vs Churn Rate</div>
+      <div class="chart-wrap tall"><canvas id="csCallsChart"></canvas></div>
+      <div class="insight-box"><strong>Critical threshold at 4+ calls:</strong> Churn rate jumps from ~11% to 46%+. Early intervention after call 3 is key.</div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent1)"></span>Churn Distribution</div>
+      <div class="chart-wrap"><canvas id="churnPieChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent2)"></span>International Plan Impact</div>
+      <div class="chart-wrap"><canvas id="intlPlanChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent3)"></span>Model Comparison (F1 Score)</div>
+      <div class="chart-wrap"><canvas id="modelCompChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ STOCK PAGE ═══════════════════════════════════ -->
+<div class="page" id="page-stock">
+
+  <div class="kpi-row">
+    <div class="kpi blue">
+      <div class="kpi-label">Start Price (Jan 2014)</div>
+      <div class="kpi-value">$79.02</div>
+      <div class="kpi-sub">AAPL opening</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">End Price (Dec 2017)</div>
+      <div class="kpi-value">$171.89</div>
+      <div class="kpi-sub">+117.5% total return</div>
+    </div>
+    <div class="kpi orange">
+      <div class="kpi-label">Max Daily Gain</div>
+      <div class="kpi-value">+8.20%</div>
+      <div class="kpi-sub">Single day peak</div>
+    </div>
+    <div class="kpi purple">
+      <div class="kpi-label">Avg Daily Return</div>
+      <div class="kpi-value">+0.09%</div>
+      <div class="kpi-sub">Consistent upward trend</div>
+    </div>
+  </div>
+
+  <div class="filter-row">
+    <span class="filter-label">Time range:</span>
+    <div class="chip active" onclick="filterStock('all', this)">All (2014–2017)</div>
+    <div class="chip" onclick="filterStock('2014', this)">2014</div>
+    <div class="chip" onclick="filterStock('2015', this)">2015</div>
+    <div class="chip" onclick="filterStock('2016', this)">2016</div>
+    <div class="chip" onclick="filterStock('2017', this)">2017</div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title"><span class="dot" style="background:var(--accent1)"></span>AAPL Monthly Closing Price with Moving Averages</div>
+    <div class="chart-wrap" style="height:320px"><canvas id="stockLineChart"></canvas></div>
+    <div class="insight-box"><strong>2016 dip</strong> followed by strong 2017 recovery. 200-day MA consistently below price confirms long-term bullish trend.</div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent2)"></span>Annual Average Price (Trend)</div>
+      <div class="chart-wrap"><canvas id="yearlyTrendChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent3)"></span>Price Growth vs S&P 500 Benchmark</div>
+      <div class="chart-wrap"><canvas id="returnChart"></canvas></div>
+      <div class="insight-box">AAPL outperformed typical S&P 500 returns over the 2014–2017 period. <strong>Cumulative return: +117.5%</strong></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ SENTIMENT PAGE ═══════════════════════════════════ -->
+<div class="page" id="page-sentiment">
+
+  <div class="kpi-row">
+    <div class="kpi blue">
+      <div class="kpi-label">Total Posts Analyzed</div>
+      <div class="kpi-value">732</div>
+      <div class="kpi-sub">Social media texts</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">Positive Posts</div>
+      <div class="kpi-value">271</div>
+      <div class="kpi-sub">37% of dataset</div>
+    </div>
+    <div class="kpi orange">
+      <div class="kpi-label">Negative Posts</div>
+      <div class="kpi-value">119</div>
+      <div class="kpi-sub">16% of dataset</div>
+    </div>
+    <div class="kpi purple">
+      <div class="kpi-label">Avg Polarity</div>
+      <div class="kpi-value">+0.098</div>
+      <div class="kpi-sub">Slightly positive overall</div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent1)"></span>Sentiment Distribution</div>
+      <div class="chart-wrap"><canvas id="sentPieChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent2)"></span>Posts by Platform</div>
+      <div class="chart-wrap"><canvas id="platformChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent3)"></span>Sentiment by Platform</div>
+      <div class="chart-wrap"><canvas id="platformSentChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent4)"></span>Top 15 Most Frequent Words</div>
+      <div class="chart-wrap tall"><canvas id="wordFreqChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent1)"></span>Top Positive vs Negative Words</div>
+      <div class="chart-wrap tall"><canvas id="posNegWordsChart"></canvas></div>
+      <div class="insight-box"><strong>Positive vocabulary</strong> dominated by experiential words (beautiful, amazing, enjoying). <strong>Negative</strong> focuses on daily frustrations (traffic, terrible, stuck).</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ IRIS PAGE ═══════════════════════════════════ -->
+<div class="page" id="page-iris">
+
+  <div class="kpi-row">
+    <div class="kpi blue">
+      <div class="kpi-label">Total Samples</div>
+      <div class="kpi-value">145</div>
+      <div class="kpi-sub">After cleaning</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">Petal Correlation</div>
+      <div class="kpi-value">r=0.93</div>
+      <div class="kpi-sub">Length × width</div>
+    </div>
+    <div class="kpi orange">
+      <div class="kpi-label">Species</div>
+      <div class="kpi-value">3</div>
+      <div class="kpi-sub">Setosa, Versicolor, Virginica</div>
+    </div>
+    <div class="kpi purple">
+      <div class="kpi-label">Outliers Removed</div>
+      <div class="kpi-value">5</div>
+      <div class="kpi-sub">IQR method</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent1)"></span>Petal Length vs Petal Width by Species</div>
+      <div class="chart-wrap tall"><canvas id="irisScatterChart"></canvas></div>
+      <div class="insight-box"><strong>Setosa</strong> is perfectly linearly separable from the other two species on petal features alone — ideal for ML classification.</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent2)"></span>Feature Averages by Species</div>
+      <div class="chart-wrap tall"><canvas id="irisRadarChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent3)"></span>Species Count</div>
+      <div class="chart-wrap"><canvas id="speciesPieChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent4)"></span>Sepal Length Distribution</div>
+      <div class="chart-wrap"><canvas id="sepalDistChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--accent1)"></span>Correlation Heatmap Values</div>
+      <div class="chart-wrap"><canvas id="corrChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<footer>Codveda Data Analytics Internship · All 3 Levels Completed · Nadine · 2026</footer>
+
+<script>
+// ─── Data ───────────────────────────────────────────────────────
+const stockDates  = ["Jan 2014","Feb 2014","Mar 2014","Apr 2014","May 2014","Jun 2014","Jul 2014","Aug 2014","Sep 2014","Oct 2014","Nov 2014","Dec 2014","Jan 2015","Feb 2015","Mar 2015","Apr 2015","May 2015","Jun 2015","Jul 2015","Aug 2015","Sep 2015","Oct 2015","Nov 2015","Dec 2015","Jan 2016","Feb 2016","Mar 2016","Apr 2016","May 2016","Jun 2016","Jul 2016","Aug 2016","Sep 2016","Oct 2016","Nov 2016","Dec 2016","Jan 2017","Feb 2017","Mar 2017","Apr 2017","May 2017","Jun 2017","Jul 2017","Aug 2017","Sep 2017","Oct 2017","Nov 2017","Dec 2017"];
+const stockPrices = [79.02,77.44,75.92,82.07,88.27,92.18,95.01,101.60,99.34,104.47,113.85,113.25,116.17,127.57,125.23,127.42,130.17,127.22,126.63,113.88,112.38,119.92,119.05,108.46,101.64,96.79,105.92,104.35,99.05,95.79,98.44,107.73,113.85,113.72,109.34,115.20,120.06,136.91,142.44,143.59,153.17,148.77,146.64,160.50,153.96,157.82,172.41,171.89];
+
+const yearlyLabels = ['2014','2015','2016','2017'];
+const yearlyPrices = [92.26, 120.04, 104.60, 150.59];
+
+// ─── Tab switching ───────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ─── Chip filter helpers ─────────────────────────────────────────
+function setActiveChip(el) {
+  el.closest('.filter-row').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ─── Chart defaults ──────────────────────────────────────────────
+Chart.defaults.color = '#8892b0';
+Chart.defaults.borderColor = '#2d3255';
+Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+
+const PALETTE = ['#4f8ef7','#43e97b','#fa7c58','#a78bfa','#f7c948','#38bdf8','#fb7185'];
+
+function makeChart(id, config) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return null;
+  return new Chart(ctx, config);
+}
+
+// ─── CHURN CHARTS ────────────────────────────────────────────────
+makeChart('stateChurnChart', {
+  type: 'bar',
+  data: {
+    labels: ['CA','NJ','TX','MD','SC','MI','MS','WA','NV','ME'],
+    datasets: [{
+      label: 'Churn Rate (%)',
+      data: [26.5,26.5,25.0,24.3,23.3,21.9,21.5,21.2,21.2,21.0],
+      backgroundColor: ['#fa7c58','#fa7c58','#f7c948','#f7c948','#4f8ef7','#4f8ef7','#4f8ef7','#4f8ef7','#4f8ef7','#4f8ef7'],
+      borderRadius: 6,
+    }]
+  },
+  options: { indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{max:35, ticks:{callback:v=>v+'%'}}}}
+});
+
+makeChart('csCallsChart', {
+  type: 'line',
+  data: {
+    labels: ['0','1','2','3','4','5','6','7','8','9'],
+    datasets: [{
+      label: 'Churn Rate (%)',
+      data: [13.2,10.3,11.5,10.3,45.8,60.6,63.6,55.6,50.0,100.0],
+      borderColor: '#a78bfa',
+      backgroundColor: 'rgba(167,139,250,0.1)',
+      pointBackgroundColor: d => d.raw > 40 ? '#fa7c58' : '#a78bfa',
+      fill: true, tension: 0.3, pointRadius: 5,
+    }]
+  },
+  options: {
+    plugins:{legend:{display:false},
+      annotation:{annotations:{line1:{type:'line',xMin:3.5,xMax:3.5,borderColor:'#fa7c58',borderWidth:2,borderDash:[6,4],label:{content:'Danger Zone',enabled:true}}}}},
+    scales:{y:{ticks:{callback:v=>v+'%'},max:110},x:{title:{display:true,text:'# Customer Service Calls'}}}
+  }
+});
+
+makeChart('churnPieChart', {
+  type: 'doughnut',
+  data: {
+    labels: ['Retained','Churned'],
+    datasets: [{ data: [85.5,14.5], backgroundColor: ['#43e97b','#fa7c58'], borderWidth: 2, borderColor: '#20243a' }]
+  },
+  options: { plugins:{legend:{position:'bottom'}} }
+});
+
+makeChart('intlPlanChart', {
+  type: 'bar',
+  data: {
+    labels: ['With Intl Plan','No Intl Plan'],
+    datasets: [{ label: 'Churn Rate (%)', data: [42.1,11.3], backgroundColor:['#fa7c58','#4f8ef7'], borderRadius:8 }]
+  },
+  options: { plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>v+'%'},max:55}} }
+});
+
+makeChart('modelCompChart', {
+  type: 'bar',
+  data: {
+    labels: ['Logistic Reg','Decision Tree','Random Forest'],
+    datasets: [{ label: 'F1 Score', data: [0.271,0.704,0.812], backgroundColor:['#38bdf8','#f7c948','#43e97b'], borderRadius:8 }]
+  },
+  options: { plugins:{legend:{display:false}}, scales:{y:{min:0,max:1}} }
+});
+
+// Churn filter
+let churnRates = { all:[26.5,26.5,25.0,24.3,23.3,21.9,21.5,21.2,21.2,21.0], intl:[38,35,32,30,28,26,25,24,23,22], no_intl:[20,20,18,17,16,15,14,14,13,12] };
+function filterChurn(type, el) {
+  setActiveChip(el);
+  const chart = Chart.getChart('stateChurnChart');
+  if (chart) { chart.data.datasets[0].data = churnRates[type]; chart.update(); }
+}
+
+// ─── STOCK CHARTS ────────────────────────────────────────────────
+const stockChart = makeChart('stockLineChart', {
+  type: 'line',
+  data: {
+    labels: stockDates,
+    datasets: [
+      { label: 'AAPL Close', data: stockPrices, borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.05)', fill:true, tension:0.3, pointRadius:0, borderWidth:2 },
+      { label: '3-Month MA', data: stockPrices.map((_,i,a) => i<2?null: a.slice(i-2,i+1).reduce((s,v)=>s+v,0)/3), borderColor:'#fa7c58', fill:false, tension:0.3, pointRadius:0, borderDash:[4,4], borderWidth:2 },
+      { label: '6-Month MA', data: stockPrices.map((_,i,a) => i<5?null: a.slice(i-5,i+1).reduce((s,v)=>s+v,0)/6), borderColor:'#43e97b', fill:false, tension:0.3, pointRadius:0, borderDash:[4,4], borderWidth:2 },
+    ]
+  },
+  options: { scales:{y:{ticks:{callback:v=>'$'+v}}}, plugins:{legend:{position:'top'}}, interaction:{mode:'index',intersect:false} }
+});
+
+const yearlyChart = makeChart('yearlyTrendChart', {
+  type: 'bar',
+  data: {
+    labels: yearlyLabels,
+    datasets: [{ label: 'Avg Price ($)', data: yearlyPrices, backgroundColor:['#38bdf8','#4f8ef7','#a78bfa','#43e97b'], borderRadius:8 }]
+  },
+  options: { plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>'$'+v}}} }
+});
+
+makeChart('returnChart', {
+  type: 'line',
+  data: {
+    labels: yearlyLabels,
+    datasets: [
+      { label: 'AAPL Return (%)', data: [0, 30.1, 13.4, 63.1], borderColor:'#43e97b', fill:false, tension:0.3, pointRadius:6 },
+      { label: 'S&P500 Benchmark (%)', data: [0, 11.4, -0.7, 19.4], borderColor:'#8892b0', fill:false, tension:0.3, borderDash:[4,4], pointRadius:6 },
+    ]
+  },
+  options: { plugins:{legend:{position:'top'}}, scales:{y:{ticks:{callback:v=>v+'%'}}} }
+});
+
+// Stock filter
+const fullDates  = [...stockDates];
+const fullPrices = [...stockPrices];
+function filterStock(year, el) {
+  setActiveChip(el);
+  let labels, data;
+  if (year === 'all') { labels=fullDates; data=fullPrices; }
+  else {
+    const filtered = fullDates.map((d,i)=>({d,p:fullPrices[i]})).filter(x=>x.d.includes(year));
+    labels = filtered.map(x=>x.d); data = filtered.map(x=>x.p);
+  }
+  stockChart.data.labels = labels;
+  stockChart.data.datasets[0].data = data;
+  stockChart.data.datasets[1].data = data.map((_,i,a)=>i<2?null:a.slice(i-2,i+1).reduce((s,v)=>s+v,0)/3);
+  stockChart.data.datasets[2].data = data.map((_,i,a)=>i<5?null:a.slice(i-5,i+1).reduce((s,v)=>s+v,0)/6);
+  stockChart.update();
+}
+
+// ─── SENTIMENT CHARTS ───────────────────────────────────────────
+makeChart('sentPieChart', {
+  type: 'doughnut',
+  data: {
+    labels: ['Positive','Neutral','Negative'],
+    datasets: [{ data:[271,342,119], backgroundColor:['#43e97b','#4f8ef7','#fa7c58'], borderWidth:2, borderColor:'#20243a' }]
+  },
+  options:{ plugins:{legend:{position:'bottom'}} }
+});
+
+makeChart('platformChart', {
+  type: 'bar',
+  data: {
+    labels:['Instagram','Twitter','Facebook'],
+    datasets:[{ label:'Posts', data:[258,243,231], backgroundColor:['#a78bfa','#38bdf8','#4f8ef7'], borderRadius:8 }]
+  },
+  options:{ plugins:{legend:{display:false}} }
+});
+
+makeChart('platformSentChart', {
+  type:'bar',
+  data:{
+    labels:['Instagram','Twitter','Facebook'],
+    datasets:[
+      {label:'Positive', data:[102,87,82], backgroundColor:'#43e97b'},
+      {label:'Neutral',  data:[123,116,103], backgroundColor:'#4f8ef7'},
+      {label:'Negative', data:[33,40,46],  backgroundColor:'#fa7c58'},
+    ]
+  },
+  options:{ plugins:{legend:{position:'top'}}, scales:{x:{stacked:true},y:{stacked:true}} }
+});
+
+makeChart('wordFreqChart', {
+  type:'bar',
+  data:{
+    labels:['feeling','dreams','laughter','heart','night','joy','life','world','art','beauty','love','music','amazing','moment','happy'].reverse(),
+    datasets:[{ label:'Frequency', data:[26,25,24,24,23,23,22,21,21,20,19,18,17,17,16].reverse(), backgroundColor: d => {
+      const colors=['#4f8ef7','#a78bfa','#43e97b','#fa7c58','#f7c948'];
+      return colors[d.dataIndex % colors.length];
+    }, borderRadius:4 }]
+  },
+  options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{title:{display:true,text:'Frequency'}}} }
+});
+
+makeChart('posNegWordsChart', {
+  type:'bar',
+  data:{
+    labels:['beautiful','amazing','enjoying','happy','love','wonderful','great','excited','terrible','traffic','stuck','worst','boring','awful','frustrated'],
+    datasets:[
+      { label:'Positive', data:[18,15,14,13,12,11,10,9,0,0,0,0,0,0,0], backgroundColor:'rgba(67,233,123,0.8)', borderRadius:4 },
+      { label:'Negative', data:[0,0,0,0,0,0,0,0,14,12,10,9,8,7,6], backgroundColor:'rgba(250,124,88,0.8)', borderRadius:4 },
+    ]
+  },
+  options:{ plugins:{legend:{position:'top'}}, scales:{x:{stacked:true},y:{stacked:true}} }
+});
+
+// ─── IRIS CHARTS ─────────────────────────────────────────────────
+const irisScatter = {
+  setosa:     {pl:[1.4,1.4,1.3,1.5,1.4,1.7,1.4,1.5,1.4,1.5,1.5,1.6,1.4,1.1,1.2,1.5,1.3,1.4,1.7,1.5,1.7,1.5,1.0,1.7,1.9,1.6,1.6,1.5,1.4,1.6,1.6,1.5,1.5,1.4,1.5,1.2,1.3,1.4,1.3,1.5,1.3,1.3,1.3,1.6,1.9],pw:[0.2,0.2,0.2,0.2,0.2,0.4,0.3,0.2,0.2,0.1,0.2,0.2,0.1,0.1,0.2,0.4,0.4,0.3,0.3,0.3,0.2,0.4,0.2,0.5,0.2,0.2,0.4,0.2,0.2,0.2,0.2,0.4,0.1,0.2,0.2,0.2,0.2,0.1,0.2,0.3,0.3,0.3,0.2,0.6,0.4]},
+  versicolor: {pl:[4.7,4.5,4.9,4.0,4.6,4.5,4.7,3.3,4.6,3.9,3.5,4.2,4.0,4.7,3.6,4.4,4.5,4.1,4.5,3.9,4.8,4.0,4.9,4.7,4.3,4.4,4.8,5.0,4.5,3.5,3.8,3.7,3.9,5.1,4.5,4.5,4.7,4.4,4.1,4.0,4.4,4.6,4.0,3.3,4.2,4.2,4.2,4.3,3.0,4.1],pw:[1.4,1.5,1.5,1.3,1.5,1.3,1.6,1.0,1.3,1.4,1.0,1.5,1.0,1.4,1.3,1.4,1.5,1.0,1.5,1.1,1.8,1.3,1.5,1.2,1.3,1.4,1.4,1.7,1.5,1.0,1.1,1.0,1.2,1.6,1.5,1.6,1.5,1.3,1.3,1.3,1.2,1.4,1.2,1.0,1.3,1.2,1.3,1.3,1.1,1.3]},
+  virginica:  {pl:[6.0,5.1,5.9,5.6,5.8,6.6,4.5,6.3,5.8,6.1,5.1,5.3,5.5,5.0,5.1,5.3,5.5,6.7,6.9,5.0,5.7,4.9,6.7,4.9,5.7,6.0,4.8,4.9,5.6,5.8,6.1,6.4,5.6,5.1,5.6,6.1,5.6,5.5,4.8,5.4,5.6,5.1,5.9,5.7,5.2,5.0,5.2,5.4,5.1],pw:[2.5,1.9,2.1,1.8,2.2,2.1,1.7,1.8,1.8,2.5,2.0,1.9,2.1,2.0,2.4,2.3,1.8,2.2,2.3,1.5,2.3,2.0,2.0,1.8,2.1,1.8,1.8,1.8,2.1,1.6,1.9,2.0,2.2,1.5,1.4,2.3,2.4,1.8,1.8,2.1,2.4,2.3,1.9,2.3,2.5,2.3,1.9,2.0,2.3]}
+};
+
+makeChart('irisScatterChart', {
+  type:'scatter',
+  data:{
+    datasets:[
+      { label:'Setosa',     data: irisScatter.setosa.pl.map((v,i)=>({x:v,y:irisScatter.setosa.pw[i]})),     backgroundColor:'rgba(79,142,247,0.7)', pointRadius:5 },
+      { label:'Versicolor', data: irisScatter.versicolor.pl.map((v,i)=>({x:v,y:irisScatter.versicolor.pw[i]})), backgroundColor:'rgba(67,233,123,0.7)', pointRadius:5 },
+      { label:'Virginica',  data: irisScatter.virginica.pl.map((v,i)=>({x:v,y:irisScatter.virginica.pw[i]})),  backgroundColor:'rgba(250,124,88,0.7)', pointRadius:5 },
+    ]
+  },
+  options:{
+    plugins:{legend:{position:'top'}},
+    scales:{
+      x:{title:{display:true,text:'Petal Length (cm)'}},
+      y:{title:{display:true,text:'Petal Width (cm)'}}
+    }
+  }
+});
+
+makeChart('irisRadarChart', {
+  type:'radar',
+  data:{
+    labels:['Sepal Length','Sepal Width','Petal Length','Petal Width'],
+    datasets:[
+      { label:'Setosa',     data:[5.01,3.43,1.46,0.25], borderColor:'#4f8ef7', backgroundColor:'rgba(79,142,247,0.15)', pointRadius:4 },
+      { label:'Versicolor', data:[5.94,2.77,4.26,1.33], borderColor:'#43e97b', backgroundColor:'rgba(67,233,123,0.15)', pointRadius:4 },
+      { label:'Virginica',  data:[6.59,2.97,5.55,2.03], borderColor:'#fa7c58', backgroundColor:'rgba(250,124,88,0.15)', pointRadius:4 },
+    ]
+  },
+  options:{ plugins:{legend:{position:'top'}}, scales:{r:{ticks:{display:false}}} }
+});
+
+makeChart('speciesPieChart', {
+  type:'doughnut',
+  data:{
+    labels:['Versicolor','Virginica','Setosa'],
+    datasets:[{ data:[50,49,46], backgroundColor:['#43e97b','#fa7c58','#4f8ef7'], borderWidth:2, borderColor:'#20243a' }]
+  },
+  options:{ plugins:{legend:{position:'bottom'}} }
+});
+
+makeChart('sepalDistChart', {
+  type:'bar',
+  data:{
+    labels:['4.3','4.6','4.9','5.2','5.5','5.8','6.1','6.4','6.7','7.0','7.3','7.6','7.9'],
+    datasets:[{ label:'Frequency', data:[2,8,18,22,24,19,18,14,10,5,3,2,1], backgroundColor:'#a78bfa', borderRadius:4 }]
+  },
+  options:{ plugins:{legend:{display:false}}, scales:{x:{title:{display:true,text:'Sepal Length (cm)'}},y:{title:{display:true,text:'Count'}}} }
+});
+
+makeChart('corrChart', {
+  type:'bar',
+  data:{
+    labels:['Petal L×W','Sepal×Petal L','Sepal×Petal W','Sepal W×Petal L'],
+    datasets:[{ label:'|Correlation|', data:[0.926,0.819,0.797,0.396], backgroundColor:['#43e97b','#4f8ef7','#4f8ef7','#fa7c58'], borderRadius:8 }]
+  },
+  options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{min:0,max:1}} }
+});
+</script>
+</body>
+</html>
